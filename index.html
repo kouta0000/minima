@@ -486,7 +486,8 @@ body {
 }
 
 
-#editor-body { flex: 1; display: flex; overflow: hidden; }
+#editor-body { flex: 1; display: flex; overflow: hidden; justify-content: center; background: var(--bg); }
+#editor-col  { max-width: 800px; width: 100%; display: flex; }
 #line-numbers {
   padding: 20px 0 20px 14px;
   min-width: 44px; text-align: right;
@@ -515,6 +516,7 @@ body {
   background: var(--sur);
   border-top: 1px solid var(--bdr-s);
   flex-shrink: 0;
+  max-width: 800px; width: 100%; align-self: center;
 }
 #word-count {
   font-family: var(--mono); font-size: 11px; color: var(--ghost);
@@ -1230,8 +1232,10 @@ body.focus #editor { padding-top: 80px; }
   <div id="content">
     <div id="editor-shell">
       <div id="editor-body">
-        <div id="line-numbers"></div>
-        <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="書き始める…"></textarea>
+        <div id="editor-col">
+          <div id="line-numbers"></div>
+          <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="書き始める…"></textarea>
+        </div>
       </div>
       <div id="editor-footer">
         <span id="word-count">0 文字</span>
