@@ -484,33 +484,8 @@ body {
   background: var(--bg);
   box-shadow: inset 0 1px 4px rgba(30,26,22,.04);
 }
-#editor-chrome {
-  display: flex; align-items: center; gap: 10px;
-  padding: 0 14px; height: 36px;
-  background: var(--sur);
-  border-bottom: 1px solid var(--bdr-s);
-  flex-shrink: 0;
-}
-.chrome-dots { display: flex; gap: 5px; flex-shrink: 0; }
-.chrome-dot  { display: block; width: 9px; height: 9px; border-radius: 50%; }
-#chrome-filename {
-  font-family: var(--mono); font-size: 11px;
-  color: var(--mid); letter-spacing: .04em;
-}
-#autosave-indicator {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--ok); margin-left: 6px;
-  opacity: 0; transition: opacity .3s;
-}
-.chrome-hint {
-  margin-left: auto; font-size: 11px; color: var(--ghost);
-  white-space: nowrap;
-}
-.chrome-hint code {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--acc2); background: rgba(160,120,80,.1);
-  padding: 1px 5px; border-radius: 3px;
-}
+
+
 #editor-body { flex: 1; display: flex; overflow: hidden; }
 #line-numbers {
   padding: 20px 0 20px 14px;
@@ -640,29 +615,40 @@ body.focus #editor { padding-top: 80px; }
 .tmr-action:hover { background: var(--bdr); color: var(--ink); }
 #tmr-start { background: var(--acc); border-color: var(--acc); color: #faf8f5; }
 #tmr-start:hover { opacity: .85; }
+#tmr-active-time {
+  font-family: var(--mono); font-size: 22px; font-weight: 300;
+  color: var(--ink); text-align: center; letter-spacing: .04em;
+  padding: 4px 0;
+}
+#tmr-active-time.break-mode { color: var(--ok); }
+#tmr-active { display: flex; flex-direction: column; gap: 9px; }
+#tmr-active.hidden { display: none; }
+#tmr-idle.hidden { display: none; }
 
 /* ─── HABIT: statusbar section ─── */
 #st-habit {
   margin-left: auto; display: flex; align-items: center; gap: 10px;
+  border-left: 1px solid var(--bdr-s); padding-left: 12px;
 }
 #st-goal-wrap {
   display: flex; align-items: center; gap: 5px; cursor: pointer;
 }
+.st-habit-lbl { font-size: 9px; color: var(--ghost); opacity: .6; }
 #st-goal-bar {
-  width: 44px; height: 2px; background: var(--bdr); border-radius: 1px; overflow: hidden;
+  width: 52px; height: 3px; background: var(--bdr); border-radius: 2px; overflow: hidden;
 }
 #st-goal-fill {
-  height: 100%; width: 0%; background: var(--acc); border-radius: 1px; transition: width .5s ease;
+  height: 100%; width: 0%; background: var(--acc); border-radius: 2px; transition: width .5s ease;
 }
-#st-goal-txt { font-size: 9px; color: var(--ghost); white-space: nowrap; }
-#st-goal-txt.done { color: var(--ok); }
-#st-streak { font-size: 10px; color: var(--soft); user-select: none; }
+#st-goal-txt { font-size: 10px; color: var(--soft); white-space: nowrap; }
+#st-goal-txt.done { color: var(--ok); font-weight: 500; }
+#st-streak { font-size: 10px; color: var(--soft); user-select: none; letter-spacing: .02em; }
 #btn-cal {
-  background: none; border: none; cursor: pointer; color: var(--ghost);
-  font-size: 11px; padding: 2px 3px; border-radius: 2px; transition: color .12s;
-  font-family: var(--mono); line-height: 1;
+  background: none; border: 1px solid var(--bdr-s); cursor: pointer; color: var(--ghost);
+  font-size: 9px; padding: 2px 6px; border-radius: var(--r-s); transition: color .12s, border-color .12s;
+  font-family: var(--sans); line-height: 1.4; white-space: nowrap;
 }
-#btn-cal:hover { color: var(--mid); }
+#btn-cal:hover { color: var(--mid); border-color: var(--bdr); }
 
 /* ─── WRITING CALENDAR ─── */
 #cal-popover {
@@ -1087,7 +1073,6 @@ body.focus #editor { padding-top: 80px; }
   #content { padding: 10px; }
   #editor { font-size: 16px; padding: 14px 16px; }
   #line-numbers { display: none; }
-  .chrome-hint { display: none; }
 
   /* topbar */
   #topbar { padding: 0 8px; gap: 3px; }
@@ -1219,14 +1204,22 @@ body.focus #editor { padding-top: 80px; }
         <button id="btn-timer" title="執筆タイマー（クリックで開始/一時停止）">◷</button>
         <div id="timer-popover" class="hidden">
           <span class="tmr-label">執筆タイマー</span>
-          <div class="tmr-presets">
-            <button class="tmr-preset active" data-min="25">25分</button>
-            <button class="tmr-preset" data-min="15">15分</button>
-            <button class="tmr-preset" data-min="50">50分</button>
+          <div id="tmr-idle">
+            <div class="tmr-presets">
+              <button class="tmr-preset active" data-min="25">25分</button>
+              <button class="tmr-preset" data-min="15">15分</button>
+              <button class="tmr-preset" data-min="50">50分</button>
+            </div>
+            <div class="tmr-actions">
+              <button class="tmr-action" id="tmr-start">開始</button>
+            </div>
           </div>
-          <div class="tmr-actions">
-            <button class="tmr-action" id="tmr-reset">リセット</button>
-            <button class="tmr-action" id="tmr-start">開始</button>
+          <div id="tmr-active" class="hidden">
+            <div id="tmr-active-time">25:00</div>
+            <div class="tmr-actions">
+              <button class="tmr-action" id="tmr-reset">リセット</button>
+              <button class="tmr-action" id="tmr-pause">一時停止</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1236,18 +1229,6 @@ body.focus #editor { padding-top: 80px; }
 
   <div id="content">
     <div id="editor-shell">
-      <div id="editor-chrome">
-        <div class="chrome-dots">
-          <span class="chrome-dot" style="background:#e0786c;"></span>
-          <span class="chrome-dot" style="background:#d4a843;"></span>
-          <span class="chrome-dot" style="background:#65b863;"></span>
-        </div>
-        <span id="chrome-filename">untitled.md</span>
-        <span id="autosave-indicator">✓ 保存済み</span>
-        <span class="chrome-hint">
-          <code>{{content}}</code> = 本文 &nbsp;·&nbsp; <code>{{today}}</code> = 今日の日付
-        </span>
-      </div>
       <div id="editor-body">
         <div id="line-numbers"></div>
         <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="書き始める…"></textarea>
@@ -1271,11 +1252,12 @@ body.focus #editor { padding-top: 80px; }
     <span id="st-lines">1 行</span>
     <div id="st-habit">
       <div id="st-goal-wrap" title="クリックで目標文字数を設定">
+        <span class="st-habit-lbl">今日</span>
         <div id="st-goal-bar"><div id="st-goal-fill"></div></div>
         <span id="st-goal-txt">0/500</span>
       </div>
       <span id="st-streak"></span>
-      <button id="btn-cal" title="執筆カレンダー">▦</button>
+      <button id="btn-cal" title="執筆カレンダーを開く">カレンダー</button>
     </div>
     <span id="st-msg"></span>
   </footer>
@@ -1704,9 +1686,9 @@ function toast(msg, ms=2200) {
 /* ─── Autosave badge ─── */
 let _abt;
 function showAutosave() {
-  const el = document.getElementById('autosave-indicator');
-  clearTimeout(_abt); el.style.opacity = '1';
-  _abt = setTimeout(() => el.style.opacity = '0', 2000);
+  stMsg.textContent = '✓ 保存済み';
+  clearTimeout(_abt);
+  _abt = setTimeout(() => { if (stMsg.textContent === '✓ 保存済み') stMsg.textContent = ''; }, 2000);
 }
 
 /* ─── Modified dot ─── */
@@ -1819,7 +1801,6 @@ function loadIntoEditor(rec) {
   const displayTitle = rec.title || rec.name.replace(/^\d{8}-\d{6}-?/, '') || 'untitled';
   filename.value = displayTitle;
   fileExt.textContent = '.' + S.ext;
-  document.getElementById('chrome-filename').textContent = displayTitle + '.' + S.ext;
   setModified(false); setFmt(S.ext, false); updateStats(); updateLineNums(); resizeFn();
   if (S.preview) renderPreview();
   lsCurSet(rec.id);
@@ -2266,12 +2247,10 @@ document.getElementById('gh-pat').addEventListener('dblclick', () => { const el=
 /* ─── Editor events ─── */
 editor.addEventListener('input', () => {
   updateStats(); setModified(true); scheduleAutoSave(); updateLineNums();
-  document.getElementById('chrome-filename').textContent=(filename.value||'untitled')+'.'+S.ext;
   if(S.preview) renderPreview();
 });
 filename.addEventListener('input', () => {
   resizeFn(); setModified(true); scheduleAutoSave();
-  document.getElementById('chrome-filename').textContent=(filename.value||'untitled')+'.'+S.ext;
 });
 editor.addEventListener('keydown', e => {
   if(e.key!=='Tab')return; e.preventDefault();
@@ -2543,12 +2522,6 @@ function tmrTick() {
   tmrUpdateDisplay();
 }
 
-function tmrUpdateDisplay() {
-  const btn = document.getElementById('btn-timer');
-  if (tmrState === 'idle') { btn.textContent = '◷'; btn.className = ''; }
-  else if (tmrState === 'work') { btn.textContent = tmrFmt(tmrSecs); btn.className = 'running'; }
-  else { btn.textContent = tmrFmt(tmrSecs); btn.className = 'break-mode'; }
-}
 
 function tmrBeep(freq, vol, dur) {
   try {
@@ -2563,14 +2536,31 @@ function tmrBeep(freq, vol, dur) {
 }
 
 const tmrPopover = document.getElementById('timer-popover');
+
+function tmrUpdateDisplay() {
+  const btn = document.getElementById('btn-timer');
+  const idleDiv = document.getElementById('tmr-idle');
+  const activeDiv = document.getElementById('tmr-active');
+  const activeTime = document.getElementById('tmr-active-time');
+  const pauseBtn = document.getElementById('tmr-pause');
+  if (tmrState === 'idle') {
+    btn.textContent = '◷'; btn.className = '';
+    idleDiv.classList.remove('hidden'); activeDiv.classList.add('hidden');
+  } else {
+    const t = tmrFmt(tmrSecs);
+    btn.textContent = t;
+    btn.className = tmrState === 'break' ? 'break-mode' : 'running';
+    activeTime.textContent = t;
+    activeTime.className = tmrState === 'break' ? 'break-mode' : '';
+    pauseBtn.textContent = tmrInterval ? '一時停止' : '再開';
+    idleDiv.classList.add('hidden'); activeDiv.classList.remove('hidden');
+  }
+}
+
 document.getElementById('btn-timer').addEventListener('click', e => {
   e.stopPropagation();
-  if (tmrState !== 'idle') {
-    if (tmrInterval) { clearInterval(tmrInterval); tmrInterval = null; }
-    else { tmrInterval = setInterval(tmrTick, 1000); }
-    return;
-  }
   tmrPopover.classList.toggle('hidden');
+  tmrUpdateDisplay();
 });
 document.querySelectorAll('.tmr-preset').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -2579,14 +2569,19 @@ document.querySelectorAll('.tmr-preset').forEach(btn => {
     tmrMin = +btn.dataset.min; tmrSecs = tmrMin*60; tmrTotal = tmrMin*60;
   });
 });
-document.getElementById('tmr-reset').addEventListener('click', () => {
-  clearInterval(tmrInterval); tmrInterval = null;
-  tmrState = 'idle'; tmrSecs = tmrMin*60; tmrTotal = tmrMin*60;
-  tmrUpdateDisplay(); tmrPopover.classList.add('hidden');
-});
 document.getElementById('tmr-start').addEventListener('click', () => {
   tmrState = 'work'; tmrSecs = tmrMin*60; tmrTotal = tmrMin*60;
   clearInterval(tmrInterval); tmrInterval = setInterval(tmrTick, 1000);
+  tmrUpdateDisplay(); tmrPopover.classList.add('hidden');
+});
+document.getElementById('tmr-pause').addEventListener('click', () => {
+  if (tmrInterval) { clearInterval(tmrInterval); tmrInterval = null; }
+  else { tmrInterval = setInterval(tmrTick, 1000); }
+  tmrUpdateDisplay();
+});
+document.getElementById('tmr-reset').addEventListener('click', () => {
+  clearInterval(tmrInterval); tmrInterval = null;
+  tmrState = 'idle'; tmrSecs = tmrMin*60; tmrTotal = tmrMin*60;
   tmrUpdateDisplay(); tmrPopover.classList.add('hidden');
 });
 document.addEventListener('click', e => {
