@@ -1,4 +1,4 @@
-const CACHE = 'minima-v1';
+const CACHE = 'minima-v2';
 const ASSETS = [
   './',
   './index.html',
