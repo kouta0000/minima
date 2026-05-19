@@ -595,12 +595,101 @@ body {
   flex-shrink: 0;
   transition: opacity .4s;
 }
-#st-msg { margin-left: auto; font-style: italic; color: var(--soft); font-family: var(--sans); }
+#st-msg { font-style: italic; color: var(--soft); font-family: var(--sans); }
 
 /* ─── FOCUS MODE ─── */
 body.focus #topbar,
 body.focus #statusbar { opacity: 0; pointer-events: none; }
 body.focus #editor { padding-top: 80px; }
+
+/* ─── POMODORO TIMER ─── */
+#timer-wrap { position: relative; }
+#btn-timer {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+  color: var(--ghost); background: none; border: none; cursor: pointer;
+  padding: 6px 7px; border-radius: var(--r-s); transition: color .15s, background .15s;
+  min-width: 46px; text-align: center; flex-shrink: 0;
+}
+#btn-timer:hover { color: var(--soft); background: var(--bg); }
+#btn-timer.running { color: var(--acc); }
+#btn-timer.break-mode { color: var(--ok); }
+#timer-popover {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  background: var(--sur); border: 1px solid var(--bdr);
+  border-radius: var(--r); padding: 11px 12px;
+  box-shadow: 0 4px 16px rgba(30,26,22,.1);
+  z-index: 500; display: flex; flex-direction: column; gap: 9px; min-width: 148px;
+}
+#timer-popover.hidden { display: none; }
+.tmr-label { font-size: 10px; color: var(--ghost); font-weight: 500; letter-spacing: .06em; text-transform: uppercase; font-family: var(--sans); }
+.tmr-presets { display: flex; gap: 4px; }
+.tmr-preset {
+  flex: 1; background: var(--bg); border: 1px solid var(--bdr);
+  border-radius: var(--r-s); color: var(--mid); cursor: pointer;
+  font-size: 10px; font-family: var(--mono); padding: 5px 0; text-align: center;
+  transition: background .12s, color .12s;
+}
+.tmr-preset.active, .tmr-preset:hover { background: var(--bdr); color: var(--ink); }
+.tmr-actions { display: flex; gap: 5px; }
+.tmr-action {
+  flex: 1; background: var(--bg); border: 1px solid var(--bdr);
+  border-radius: var(--r-s); color: var(--mid); cursor: pointer;
+  font-size: 10px; font-family: var(--sans); padding: 5px 0; text-align: center;
+  transition: background .12s, color .12s;
+}
+.tmr-action:hover { background: var(--bdr); color: var(--ink); }
+#tmr-start { background: var(--acc); border-color: var(--acc); color: #faf8f5; }
+#tmr-start:hover { opacity: .85; }
+
+/* ─── HABIT: statusbar section ─── */
+#st-habit {
+  margin-left: auto; display: flex; align-items: center; gap: 10px;
+}
+#st-goal-wrap {
+  display: flex; align-items: center; gap: 5px; cursor: pointer;
+}
+#st-goal-bar {
+  width: 44px; height: 2px; background: var(--bdr); border-radius: 1px; overflow: hidden;
+}
+#st-goal-fill {
+  height: 100%; width: 0%; background: var(--acc); border-radius: 1px; transition: width .5s ease;
+}
+#st-goal-txt { font-size: 9px; color: var(--ghost); white-space: nowrap; }
+#st-goal-txt.done { color: var(--ok); }
+#st-streak { font-size: 10px; color: var(--soft); user-select: none; }
+#btn-cal {
+  background: none; border: none; cursor: pointer; color: var(--ghost);
+  font-size: 11px; padding: 2px 3px; border-radius: 2px; transition: color .12s;
+  font-family: var(--mono); line-height: 1;
+}
+#btn-cal:hover { color: var(--mid); }
+
+/* ─── WRITING CALENDAR ─── */
+#cal-popover {
+  position: fixed; bottom: 36px; right: 14px;
+  background: var(--sur); border: 1px solid var(--bdr);
+  border-radius: var(--r); padding: 14px 14px 10px;
+  box-shadow: 0 -4px 24px rgba(30,26,22,.12);
+  z-index: 600; min-width: 180px;
+}
+#cal-popover.hidden { display: none; }
+#cal-head {
+  display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;
+}
+#cal-title { font-size: 10px; font-weight: 600; color: var(--mid); font-family: var(--sans); letter-spacing: .04em; }
+#cal-stats { font-size: 9px; color: var(--ghost); font-family: var(--mono); }
+.cal-grid { display: flex; gap: 2px; }
+.cal-week { display: flex; flex-direction: column; gap: 2px; }
+.cal-cell { width: 11px; height: 11px; border-radius: 2px; background: var(--bg); }
+.cal-cell[data-v="1"] { background: rgba(107,94,76,.2); }
+.cal-cell[data-v="2"] { background: rgba(107,94,76,.45); }
+.cal-cell[data-v="3"] { background: rgba(107,94,76,.72); }
+.cal-cell[data-v="4"] { background: var(--acc); }
+#cal-legend {
+  display: flex; align-items: center; gap: 4px; margin-top: 8px;
+  font-size: 9px; color: var(--ghost); font-family: var(--mono);
+}
+#cal-legend-cells { display: flex; gap: 2px; }
 
 /* ═══════════════════════════════════════
    TOAST
@@ -1126,6 +1215,21 @@ body.focus #editor { padding-top: 80px; }
           </div>
         </div>
       </div>
+      <div id="timer-wrap">
+        <button id="btn-timer" title="執筆タイマー（クリックで開始/一時停止）">◷</button>
+        <div id="timer-popover" class="hidden">
+          <span class="tmr-label">執筆タイマー</span>
+          <div class="tmr-presets">
+            <button class="tmr-preset active" data-min="25">25分</button>
+            <button class="tmr-preset" data-min="15">15分</button>
+            <button class="tmr-preset" data-min="50">50分</button>
+          </div>
+          <div class="tmr-actions">
+            <button class="tmr-action" id="tmr-reset">リセット</button>
+            <button class="tmr-action" id="tmr-start">開始</button>
+          </div>
+        </div>
+      </div>
       <button class="save-btn" id="btn-save">保存</button>
     </div>
   </header>
@@ -1165,6 +1269,14 @@ body.focus #editor { padding-top: 80px; }
     <span id="st-chars">0 文字</span>
     <span style="opacity:.4;">·</span>
     <span id="st-lines">1 行</span>
+    <div id="st-habit">
+      <div id="st-goal-wrap" title="クリックで目標文字数を設定">
+        <div id="st-goal-bar"><div id="st-goal-fill"></div></div>
+        <span id="st-goal-txt">0/500</span>
+      </div>
+      <span id="st-streak"></span>
+      <button id="btn-cal" title="執筆カレンダー">▦</button>
+    </div>
     <span id="st-msg"></span>
   </footer>
 </div>
@@ -1605,6 +1717,7 @@ function updateStats() {
   const v = editor.value;
   stChars.textContent = v.length.toLocaleString('ja') + ' 文字';
   stLines.textContent = (v ? v.split('\n').length : 1).toLocaleString('ja') + ' 行';
+  logUpdate(v.length);
 }
 
 /* ─── Line numbers ─── */
@@ -2324,11 +2437,187 @@ document.getElementById('tpl-mgr-bg').addEventListener('click', closeTplManager)
   }
 })();
 
+/* ════════════ HABIT TRACKING ════════════ */
+function dateKey(d) { return (d || new Date()).toISOString().slice(0, 10); }
+
+function logUpdate(chars) {
+  const log = LS.get('minima_log', {});
+  const key = dateKey();
+  if ((log[key] || 0) < chars) { log[key] = chars; LS.set('minima_log', log); }
+  renderHabit(chars, log);
+}
+
+function calcStreak(log) {
+  const goal = LS.get('minima_goal', 500);
+  const todayDone = (log[dateKey()] || 0) >= goal;
+  let streak = todayDone ? 1 : 0;
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  for (let i = 0; i < 365; i++) {
+    if ((log[dateKey(d)] || 0) >= goal) { streak++; d.setDate(d.getDate() - 1); } else break;
+  }
+  return streak;
+}
+
+function renderHabit(chars, log) {
+  if (log === undefined) log = LS.get('minima_log', {});
+  if (chars === undefined) chars = log[dateKey()] || 0;
+  const goal = LS.get('minima_goal', 500);
+  const pct = Math.min(100, chars / goal * 100);
+  document.getElementById('st-goal-fill').style.width = pct + '%';
+  const gt = document.getElementById('st-goal-txt');
+  gt.textContent = chars.toLocaleString('ja') + '/' + goal.toLocaleString('ja');
+  gt.className = chars >= goal ? 'done' : '';
+  const streak = calcStreak(log);
+  const se = document.getElementById('st-streak');
+  se.textContent = streak > 0 ? '🔥 ' + streak : '';
+  se.title = streak > 0 ? streak + '日連続' : '';
+}
+
+document.getElementById('st-goal-wrap').addEventListener('click', () => {
+  const cur = LS.get('minima_goal', 500);
+  const v = prompt('1日の目標文字数', cur);
+  if (v !== null && !isNaN(+v) && +v > 0) { LS.set('minima_goal', +v); renderHabit(); }
+});
+
+function renderCalendar() {
+  const log = LS.get('minima_log', {});
+  const goal = LS.get('minima_goal', 500);
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - start.getDay() - 11 * 7);
+  const totalDays = Object.values(log).filter(v => v > 0).length;
+  const totalChars = Object.values(log).reduce((a, b) => a + b, 0);
+  document.getElementById('cal-stats').textContent = totalDays + '日 · ' + totalChars.toLocaleString('ja') + '文字';
+  for (let w = 0; w < 13; w++) {
+    const wk = document.createElement('div'); wk.className = 'cal-week';
+    for (let d = 0; d < 7; d++) {
+      const dt = new Date(start); dt.setDate(start.getDate() + w * 7 + d);
+      const chars = log[dateKey(dt)] || 0;
+      let lv = 0;
+      if (chars >= goal) lv = 4;
+      else if (chars >= goal * .7) lv = 3;
+      else if (chars >= goal * .4) lv = 2;
+      else if (chars > 0) lv = 1;
+      const cell = document.createElement('div'); cell.className = 'cal-cell';
+      if (lv) cell.dataset.v = lv;
+      cell.title = dateKey(dt) + '  ' + chars.toLocaleString('ja') + '文字';
+      if (dt > today) cell.style.opacity = '.25';
+      wk.appendChild(cell);
+    }
+    grid.appendChild(wk);
+  }
+}
+
+const calPopover = document.getElementById('cal-popover');
+document.getElementById('btn-cal').addEventListener('click', e => {
+  e.stopPropagation();
+  calPopover.classList.contains('hidden') ? (renderCalendar(), calPopover.classList.remove('hidden')) : calPopover.classList.add('hidden');
+});
+document.addEventListener('click', e => {
+  if (!calPopover.contains(e.target) && e.target.id !== 'btn-cal') calPopover.classList.add('hidden');
+});
+
+renderHabit();
+
+/* ════════════ POMODORO TIMER ════════════ */
+let tmrState = 'idle', tmrSecs = 25 * 60, tmrTotal = 25 * 60, tmrInterval = null, tmrMin = 25;
+
+function tmrFmt(s) { return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); }
+
+function tmrTick() {
+  tmrSecs--;
+  if (tmrSecs <= 0) {
+    clearInterval(tmrInterval); tmrInterval = null;
+    if (tmrState === 'work') {
+      tmrBeep(880,.15,.4); setTimeout(()=>tmrBeep(1100,.12,.4),500);
+      toast('◷ セッション終了！');
+      tmrState = 'break'; tmrSecs = 5*60; tmrTotal = 5*60;
+      tmrInterval = setInterval(tmrTick, 1000);
+    } else {
+      tmrBeep(660,.1,.3); toast('☕ 休憩終了');
+      tmrState = 'idle'; tmrSecs = tmrMin*60; tmrTotal = tmrMin*60;
+    }
+  }
+  tmrUpdateDisplay();
+}
+
+function tmrUpdateDisplay() {
+  const btn = document.getElementById('btn-timer');
+  if (tmrState === 'idle') { btn.textContent = '◷'; btn.className = ''; }
+  else if (tmrState === 'work') { btn.textContent = tmrFmt(tmrSecs); btn.className = 'running'; }
+  else { btn.textContent = tmrFmt(tmrSecs); btn.className = 'break-mode'; }
+}
+
+function tmrBeep(freq, vol, dur) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = freq; osc.type = 'sine';
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + dur);
+    osc.start(); osc.stop(ctx.currentTime + dur);
+  } catch(e){}
+}
+
+const tmrPopover = document.getElementById('timer-popover');
+document.getElementById('btn-timer').addEventListener('click', e => {
+  e.stopPropagation();
+  if (tmrState !== 'idle') {
+    if (tmrInterval) { clearInterval(tmrInterval); tmrInterval = null; }
+    else { tmrInterval = setInterval(tmrTick, 1000); }
+    return;
+  }
+  tmrPopover.classList.toggle('hidden');
+});
+document.querySelectorAll('.tmr-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tmr-preset').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    tmrMin = +btn.dataset.min; tmrSecs = tmrMin*60; tmrTotal = tmrMin*60;
+  });
+});
+document.getElementById('tmr-reset').addEventListener('click', () => {
+  clearInterval(tmrInterval); tmrInterval = null;
+  tmrState = 'idle'; tmrSecs = tmrMin*60; tmrTotal = tmrMin*60;
+  tmrUpdateDisplay(); tmrPopover.classList.add('hidden');
+});
+document.getElementById('tmr-start').addEventListener('click', () => {
+  tmrState = 'work'; tmrSecs = tmrMin*60; tmrTotal = tmrMin*60;
+  clearInterval(tmrInterval); tmrInterval = setInterval(tmrTick, 1000);
+  tmrUpdateDisplay(); tmrPopover.classList.add('hidden');
+});
+document.addEventListener('click', e => {
+  if (!document.getElementById('timer-wrap').contains(e.target)) tmrPopover.classList.add('hidden');
+});
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
 }
 </script>
+
+<div id="cal-popover" class="hidden">
+  <div id="cal-head">
+    <span id="cal-title">執筆カレンダー</span>
+    <span id="cal-stats"></span>
+  </div>
+  <div class="cal-grid" id="cal-grid"></div>
+  <div id="cal-legend">
+    少ない
+    <div id="cal-legend-cells">
+      <div class="cal-cell"></div>
+      <div class="cal-cell" data-v="1"></div>
+      <div class="cal-cell" data-v="2"></div>
+      <div class="cal-cell" data-v="3"></div>
+      <div class="cal-cell" data-v="4"></div>
+    </div>
+    多い
+  </div>
+</div>
+
 </body>
 </html>
