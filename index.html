@@ -486,8 +486,7 @@ body {
 }
 
 
-#editor-body { flex: 1; display: flex; overflow: hidden; justify-content: center; background: var(--bg); }
-#editor-col  { max-width: 640px; width: 100%; display: flex; overflow: hidden; flex-shrink: 0; }
+#editor-body { flex: 1; display: flex; overflow: hidden; background: var(--bg); }
 #line-numbers {
   padding: 20px 0 20px 14px;
   min-width: 44px; text-align: right;
@@ -499,15 +498,21 @@ body {
   background: var(--sur);
   white-space: pre;
 }
+#editor-center {
+  flex: 1; display: flex; justify-content: center;
+  overflow: hidden; background: var(--bg);
+}
 #editor {
-  flex: 1; background: transparent;
+  width: 100%; max-width: 700px;
+  background: var(--hi);
   border: none; outline: none; resize: none;
   font-family: var(--mono); font-size: var(--editor-fs); font-weight: 300;
   line-height: 2; color: var(--ink);
   caret-color: var(--acc2);
-  padding: 20px 40px;
+  padding: 28px 48px;
   letter-spacing: .01em;
   -webkit-overflow-scrolling: touch;
+  box-shadow: 0 0 0 1px var(--bdr-s);
 }
 #editor::placeholder { color: var(--ghost); font-style: italic; opacity: .7; }
 #editor-footer {
@@ -516,7 +521,6 @@ body {
   background: var(--sur);
   border-top: 1px solid var(--bdr-s);
   flex-shrink: 0;
-  max-width: 640px; width: 100%; align-self: center;
 }
 #word-count {
   font-family: var(--mono); font-size: 11px; color: var(--ghost);
@@ -1232,8 +1236,8 @@ body.focus #editor { padding-top: 80px; }
   <div id="content">
     <div id="editor-shell">
       <div id="editor-body">
-        <div id="editor-col">
-          <div id="line-numbers"></div>
+        <div id="line-numbers"></div>
+        <div id="editor-center">
           <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="書き始める…"></textarea>
         </div>
       </div>
