@@ -56,6 +56,7 @@ html, body { height: 100%; }
   --top-h:   52px;
   --bot-h:   28px;
   --sb-w:    320px;
+  --editor-fs: 20px;
 }
 
 body {
@@ -414,6 +415,28 @@ body {
 .nav-btn:hover { color: var(--ink); background: var(--bg); }
 .nav-btn.active { color: var(--ink); background: var(--bdr-s); }
 
+/* font size popover */
+#fs-wrap { position: relative; }
+#btn-fs { font-family: var(--sans); font-size: 11px; font-weight: 500; letter-spacing: .02em; padding: 6px 7px; }
+#fs-popover {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  background: var(--sur); border: 1px solid var(--bdr);
+  border-radius: var(--r); padding: 10px 12px;
+  box-shadow: 0 4px 16px rgba(30,26,22,.1);
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 500; min-width: 130px;
+}
+#fs-popover.hidden { display: none; }
+.fs-label { font-size: 10px; color: var(--ghost); font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.fs-controls { display: flex; align-items: center; gap: 8px; }
+.fs-controls button {
+  background: var(--bg); border: 1px solid var(--bdr); border-radius: var(--r-s);
+  color: var(--mid); cursor: pointer; font-size: 11px; font-family: var(--sans);
+  padding: 4px 8px; transition: background .12s, color .12s;
+}
+.fs-controls button:hover { background: var(--bdr); color: var(--ink); }
+#fs-val { font-family: var(--mono); font-size: 13px; color: var(--ink); min-width: 24px; text-align: center; }
+
 /* format picker */
 #format-picker {
   display: flex;
@@ -492,7 +515,7 @@ body {
 #line-numbers {
   padding: 20px 0 20px 14px;
   min-width: 44px; text-align: right;
-  font-family: var(--mono); font-size: 14px; line-height: 2;
+  font-family: var(--mono); font-size: calc(var(--editor-fs) * 0.7); line-height: 2;
   color: var(--ghost); opacity: .45;
   user-select: none; overflow: hidden;
   flex-shrink: 0;
@@ -503,7 +526,7 @@ body {
 #editor {
   flex: 1; background: transparent;
   border: none; outline: none; resize: none;
-  font-family: var(--mono); font-size: 20px; font-weight: 300;
+  font-family: var(--mono); font-size: var(--editor-fs); font-weight: 300;
   line-height: 2; color: var(--ink);
   caret-color: var(--acc2);
   padding: 20px 40px;
@@ -1092,6 +1115,17 @@ body.focus #editor { padding-top: 80px; }
           <path d="M2 5V2h3M11 2h3v3M14 11v3h-3M5 14H2v-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
         </svg>
       </button>
+      <div id="fs-wrap">
+        <button class="nav-btn" id="btn-fs" title="文字サイズ">Aa</button>
+        <div id="fs-popover" class="hidden">
+          <span class="fs-label">文字サイズ</span>
+          <div class="fs-controls">
+            <button id="fs-dec">A−</button>
+            <span id="fs-val">20</span>
+            <button id="fs-inc">A＋</button>
+          </div>
+        </div>
+      </div>
       <button class="save-btn" id="btn-save">保存</button>
     </div>
   </header>
@@ -2165,6 +2199,27 @@ document.getElementById('btn-preview').addEventListener('click', togglePreview);
 document.getElementById('btn-share').addEventListener('click', openShare);
 document.getElementById('btn-github').addEventListener('click', openGithubModal);
 document.getElementById('btn-focus').addEventListener('click', toggleFocus);
+
+/* ─── Font size ─── */
+const FS_MIN = 12, FS_MAX = 32, FS_STEP = 2;
+let currentFs = LS.get('minima_editor_fs', 20);
+function applyFs(v) {
+  currentFs = Math.min(FS_MAX, Math.max(FS_MIN, v));
+  document.documentElement.style.setProperty('--editor-fs', currentFs + 'px');
+  document.getElementById('fs-val').textContent = currentFs;
+  LS.set('minima_editor_fs', currentFs);
+}
+applyFs(currentFs);
+const fsPopover = document.getElementById('fs-popover');
+document.getElementById('btn-fs').addEventListener('click', e => {
+  e.stopPropagation();
+  fsPopover.classList.toggle('hidden');
+});
+document.getElementById('fs-dec').addEventListener('click', () => applyFs(currentFs - FS_STEP));
+document.getElementById('fs-inc').addEventListener('click', () => applyFs(currentFs + FS_STEP));
+document.addEventListener('click', e => {
+  if (!document.getElementById('fs-wrap').contains(e.target)) fsPopover.classList.add('hidden');
+});
 document.getElementById('share-close').addEventListener('click', closeShare);
 document.getElementById('share-bg').addEventListener('click', closeShare);
 document.getElementById('btn-qr-gen').addEventListener('click', generateQR);
