@@ -586,41 +586,33 @@ body.focus #editor { padding-top: 80px; }
 /* ─── TIMER FLOAT BADGE ─── */
 #timer-float {
   position: fixed;
-  top: calc(var(--top-h) + 18px);
-  right: 22px;
-  width: 82px;
-  height: 82px;
+  top: calc(var(--top-h) + 48px);
+  right: 44px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
-  /* ニュートラルな立体感: 上から光が当たる質感 */
-  background: radial-gradient(circle at 38% 32%, #faf8f4 0%, #edeae3 55%, #e4e0d8 100%);
-  box-shadow:
-    0 0 0 1px rgba(200,194,184,.55),
-    0 6px 24px rgba(30,26,22,.13),
-    0 2px 6px rgba(30,26,22,.08),
-    inset 0 1px 2px rgba(255,255,255,.95),
-    inset 0 -1px 2px rgba(30,26,22,.05);
+  background: var(--sur);
+  border: 1px solid var(--bdr-s);
+  box-shadow: 0 2px 10px rgba(30,26,22,.07), 0 1px 3px rgba(30,26,22,.05);
   z-index: 150;
   cursor: pointer; user-select: none;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 5px;
-  opacity: 1; transform: none;
-  transition: opacity .3s cubic-bezier(0.16,1,0.3,1),
-              transform .3s cubic-bezier(0.16,1,0.3,1),
+  gap: 4px;
+  opacity: 0.72;
+  transform: none;
+  transition: opacity .25s ease,
+              transform .25s cubic-bezier(0.16,1,0.3,1),
               box-shadow .2s;
 }
 #timer-float:hover {
-  box-shadow:
-    0 0 0 1px rgba(200,194,184,.65),
-    0 8px 28px rgba(30,26,22,.16),
-    0 2px 8px rgba(30,26,22,.10),
-    inset 0 1px 2px rgba(255,255,255,.95),
-    inset 0 -1px 2px rgba(30,26,22,.05);
+  opacity: 1;
+  box-shadow: 0 4px 16px rgba(30,26,22,.11), 0 1px 4px rgba(30,26,22,.07);
 }
-#timer-float:active { transform: scale(.94); box-shadow: 0 0 0 1px rgba(200,194,184,.55), 0 3px 10px rgba(30,26,22,.10), inset 0 1px 2px rgba(255,255,255,.9), inset 0 -1px 2px rgba(30,26,22,.05); }
-#timer-float.hidden { opacity: 0; pointer-events: none; transform: translateY(-10px) scale(.86); }
+#timer-float:active { transform: scale(.95); }
+#timer-float.hidden { opacity: 0; pointer-events: none; transform: translateY(-6px) scale(.9); }
 
-/* SVGプログレスリング (外周を削り取るように残量を表示) */
+/* SVGプログレスリング */
 #timer-float-ring {
   position: absolute;
   top: -4px; left: -4px;
@@ -630,16 +622,17 @@ body.focus #editor { padding-top: 80px; }
 }
 #timer-float-ring .ring-track {
   fill: none;
-  stroke: rgba(30,26,22,.08);
-  stroke-width: 3;
+  stroke: var(--bdr-s);
+  stroke-width: 2;
 }
 #timer-float-ring .ring-fill {
   fill: none;
   stroke: var(--acc);
-  stroke-width: 3;
+  stroke-width: 2;
   stroke-linecap: round;
-  stroke-dasharray: 263.9; /* 2π × 42 */
+  stroke-dasharray: 263.9;
   stroke-dashoffset: 0;
+  opacity: 0.6;
   transition: stroke-dashoffset .95s linear, stroke .4s;
 }
 #timer-float.break-mode .ring-fill { stroke: var(--ok); }
@@ -649,33 +642,32 @@ body.focus #editor { padding-top: 80px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 50px;
-  height: 24px;
-  border-radius: 3px;
-  background: linear-gradient(160deg, rgba(30,26,22,.09) 0%, rgba(30,26,22,.05) 100%);
-  border: 1px solid rgba(30,26,22,.13);
-  box-shadow: inset 0 1px 3px rgba(30,26,22,.10), inset 0 -1px 0 rgba(255,255,255,.4);
+  width: 44px;
+  height: 21px;
+  border-radius: 2px;
+  background: rgba(30,26,22,.05);
+  border: 1px solid var(--bdr-s);
+  box-shadow: inset 0 1px 2px rgba(30,26,22,.06);
 }
 #timer-float.break-mode #timer-float-screen {
-  background: linear-gradient(160deg, rgba(82,122,100,.10) 0%, rgba(82,122,100,.05) 100%);
-  border-color: rgba(82,122,100,.22);
+  background: rgba(82,122,100,.07);
+  border-color: rgba(82,122,100,.18);
 }
 #timer-float-time {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: 11px;
   font-weight: 400;
-  letter-spacing: .05em;
-  color: var(--ink);
+  letter-spacing: .04em;
+  color: var(--mid);
   line-height: 1;
 }
 #timer-float.break-mode #timer-float-time { color: var(--ok); }
 #timer-float-label {
   font-family: var(--sans);
-  font-size: 6.5px;
-  font-weight: 500;
-  letter-spacing: .15em;
+  font-size: 6px;
+  letter-spacing: .14em;
   text-transform: uppercase;
-  color: var(--soft);
+  color: var(--ghost);
   line-height: 1;
 }
 #timer-float-icon { display: none; }
@@ -2691,7 +2683,8 @@ function tmrUpdateDisplay() {
     const floatLabel = document.getElementById('timer-float-label');
     if (floatLabel) floatLabel.textContent = tmrState === 'break' ? 'BREAK' : (tmrInterval ? 'FOCUS' : 'PAUSED');
     floatEl.classList.toggle('break-mode', tmrState === 'break');
-    floatEl.classList.remove('hidden');
+    const popoverOpen = !tmrPopover.classList.contains('hidden');
+    floatEl.classList.toggle('hidden', popoverOpen);
     const ringFill = document.querySelector('#timer-float-ring .ring-fill');
     if (ringFill) {
       const circumference = 263.9;
@@ -2735,7 +2728,10 @@ document.getElementById('timer-float').addEventListener('click', () => {
   tmrUpdateDisplay();
 });
 document.addEventListener('click', e => {
-  if (!document.getElementById('timer-wrap').contains(e.target)) tmrPopover.classList.add('hidden');
+  if (!document.getElementById('timer-wrap').contains(e.target)) {
+    tmrPopover.classList.add('hidden');
+    tmrUpdateDisplay();
+  }
 });
 
 if ('serviceWorker' in navigator) {
