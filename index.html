@@ -648,6 +648,9 @@ body.focus #editor { padding-top: 80px; }
 }
 #st-goal-txt { font-size: 10px; color: var(--soft); white-space: nowrap; }
 #st-goal-txt.done { color: var(--ok); font-weight: 500; }
+#st-goal-wrap::after { content: '✎'; font-size: 9px; color: var(--ghost); opacity: 0; margin-left: 3px; transition: opacity .15s; }
+#st-goal-wrap:hover::after { opacity: 1; }
+#st-achievements { font-size: 12px; letter-spacing: 1px; user-select: none; line-height: 1; }
 #st-streak { font-size: 10px; color: var(--soft); user-select: none; letter-spacing: .02em; }
 #btn-cal {
   background: none; border: 1px solid var(--bdr-s); cursor: pointer; color: var(--ghost);
@@ -1264,6 +1267,7 @@ body.focus #editor { padding-top: 80px; }
         <div id="st-goal-bar"><div id="st-goal-fill"></div></div>
         <span id="st-goal-txt">0/500</span>
       </div>
+      <span id="st-achievements"></span>
       <span id="st-streak"></span>
       <button id="btn-cal" title="執筆カレンダーを開く">カレンダー</button>
     </div>
@@ -2445,19 +2449,37 @@ function calcStreak(log) {
   return streak;
 }
 
+const ACHIEVE_MARKS = ['🔥', '💧', '🌳'];
+
 function renderHabit(chars, log) {
   if (log === undefined) log = LS.get('minima_log', {});
   if (chars === undefined) chars = log[dateKey()] || 0;
   const goal = LS.get('minima_goal', 500);
-  const pct = Math.min(100, chars / goal * 100);
-  document.getElementById('st-goal-fill').style.width = pct + '%';
+
+  // バーは現在の倍数内での進捗を循環表示
+  const count = Math.floor(chars / goal);
+  const pct = chars === 0 ? 0
+    : count === 0 ? chars / goal * 100
+    : (chars % goal || goal) / goal * 100;
+  document.getElementById('st-goal-fill').style.width = Math.min(100, pct) + '%';
+
+  // テキスト：今日の文字数 / 目標
   const gt = document.getElementById('st-goal-txt');
   gt.textContent = chars.toLocaleString('ja') + '/' + goal.toLocaleString('ja');
   gt.className = chars >= goal ? 'done' : '';
+
+  // 達成マーク：倍数ごとに 🔥 💧 🌳 を順に追加
+  const ae = document.getElementById('st-achievements');
+  ae.textContent = count > 0
+    ? Array.from({length: count}, (_, i) => ACHIEVE_MARKS[i % ACHIEVE_MARKS.length]).join('')
+    : '';
+  ae.title = count > 0 ? `目標 × ${count} 達成！` : '';
+
+  // 連続日数（絵文字なしで🔥と混在回避）
   const streak = calcStreak(log);
   const se = document.getElementById('st-streak');
-  se.textContent = streak > 0 ? '🔥 ' + streak : '';
-  se.title = streak > 0 ? streak + '日連続' : '';
+  se.textContent = streak > 0 ? streak + '日連続' : '';
+  se.title = streak > 0 ? streak + '日連続執筆中' : '';
 }
 
 document.getElementById('st-goal-wrap').addEventListener('click', () => {
