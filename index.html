@@ -583,6 +583,35 @@ body.focus #topbar,
 body.focus #statusbar { opacity: 0; pointer-events: none; }
 body.focus #editor { padding-top: 80px; }
 
+/* ─── TIMER FLOAT BADGE ─── */
+#timer-float {
+  position: fixed;
+  top: calc(var(--top-h) + 14px);
+  right: 20px;
+  display: flex; align-items: center; gap: 9px;
+  background: #c0392b;
+  color: #fff;
+  border-radius: 24px;
+  padding: 9px 18px 9px 13px;
+  font-family: var(--mono);
+  box-shadow: 0 6px 24px rgba(192,57,43,.45), 0 2px 8px rgba(0,0,0,.2);
+  z-index: 150;
+  cursor: pointer; user-select: none;
+  opacity: 1; transform: none;
+  transition: opacity .28s cubic-bezier(0.16,1,0.3,1),
+              transform .28s cubic-bezier(0.16,1,0.3,1),
+              box-shadow .2s;
+}
+#timer-float:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(192,57,43,.52), 0 4px 12px rgba(0,0,0,.22); }
+#timer-float:active { transform: translateY(0); }
+#timer-float.hidden { opacity: 0; pointer-events: none; transform: translateY(-10px) scale(.88); }
+#timer-float.break-mode { background: var(--ok); box-shadow: 0 6px 24px rgba(82,122,100,.42), 0 2px 8px rgba(0,0,0,.14); }
+#timer-float.break-mode:hover { box-shadow: 0 10px 32px rgba(82,122,100,.52), 0 4px 12px rgba(0,0,0,.18); }
+#timer-float-icon { font-size: 22px; line-height: 1; }
+#timer-float-time { font-size: 18px; font-weight: 300; letter-spacing: .02em; }
+#timer-float-state { font-size: 9px; opacity: .75; letter-spacing: .06em; text-transform: uppercase; font-family: var(--sans); margin-top: 1px; }
+@media (max-width: 820px) { #timer-float { display: none; } }
+
 /* ─── POMODORO TIMER ─── */
 #timer-wrap { position: relative; }
 #btn-timer {
@@ -2573,9 +2602,14 @@ function tmrUpdateDisplay() {
   const activeDiv = document.getElementById('tmr-active');
   const activeTime = document.getElementById('tmr-active-time');
   const pauseBtn = document.getElementById('tmr-pause');
+  const floatEl = document.getElementById('timer-float');
+  const floatIcon = document.getElementById('timer-float-icon');
+  const floatTime = document.getElementById('timer-float-time');
   if (tmrState === 'idle') {
     btn.textContent = '◷'; btn.className = '';
     idleDiv.classList.remove('hidden'); activeDiv.classList.add('hidden');
+    floatEl.classList.add('hidden');
+    floatEl.classList.remove('break-mode');
   } else {
     const t = tmrFmt(tmrSecs);
     btn.textContent = t;
@@ -2584,6 +2618,10 @@ function tmrUpdateDisplay() {
     activeTime.className = tmrState === 'break' ? 'break-mode' : '';
     pauseBtn.textContent = tmrInterval ? '一時停止' : '再開';
     idleDiv.classList.add('hidden'); activeDiv.classList.remove('hidden');
+    floatIcon.textContent = tmrState === 'break' ? '☕' : (tmrInterval ? '🍅' : '⏸');
+    floatTime.textContent = t;
+    floatEl.classList.toggle('break-mode', tmrState === 'break');
+    floatEl.classList.remove('hidden');
   }
 }
 
@@ -2614,6 +2652,12 @@ document.getElementById('tmr-reset').addEventListener('click', () => {
   tmrState = 'idle'; tmrSecs = tmrMin*60; tmrTotal = tmrMin*60;
   tmrUpdateDisplay(); tmrPopover.classList.add('hidden');
 });
+document.getElementById('timer-float').addEventListener('click', () => {
+  if (tmrState === 'idle') return;
+  if (tmrInterval) { clearInterval(tmrInterval); tmrInterval = null; }
+  else { tmrInterval = setInterval(tmrTick, 1000); }
+  tmrUpdateDisplay();
+});
 document.addEventListener('click', e => {
   if (!document.getElementById('timer-wrap').contains(e.target)) tmrPopover.classList.add('hidden');
 });
@@ -2624,6 +2668,11 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+
+<div id="timer-float" class="hidden" title="クリックで一時停止/再開">
+  <span id="timer-float-icon">🍅</span>
+  <span id="timer-float-time">25:00</span>
+</div>
 
 <div id="cal-popover" class="hidden">
   <div id="cal-head">
