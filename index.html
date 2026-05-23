@@ -1387,6 +1387,14 @@ body.focus #editor { padding-top: 80px; }
             <p class="x-auth-desc">Xアカウントと連携して<br>アプリ内から直接投稿できます</p>
             <p id="x-auth-error" class="hidden"></p>
             <button id="x-auth-btn">X で認証する</button>
+            <details id="x-manual-wrap" style="margin-top:4px;">
+              <summary style="font-size:10px;color:var(--ghost);cursor:pointer;user-select:none;">手動でトークンを設定</summary>
+              <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+                <p style="font-size:10px;color:var(--soft);margin:0;line-height:1.5;">Developer Portal → OAuth 2.0 キー → アクセストークン を貼り付け</p>
+                <input id="x-manual-token" type="password" placeholder="アクセストークン" style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:11px;font-family:var(--mono);border:1px solid var(--bdr-s);border-radius:var(--r-s);background:var(--hi);color:var(--ink);outline:none;"/>
+                <button id="x-manual-btn" style="background:var(--ink);color:var(--hi);border:none;border-radius:var(--r-s);padding:6px;font-size:11px;font-family:var(--sans);cursor:pointer;">設定する</button>
+              </div>
+            </details>
           </div>
           <!-- 認証済みビュー -->
           <div id="x-write-view" class="hidden">
@@ -3082,6 +3090,28 @@ xBtn.addEventListener('click', e => {
   xPopover.classList.contains('hidden') ? xOpen() : xClose();
 });
 document.getElementById('x-auth-btn').addEventListener('click', xStartAuth);
+
+document.getElementById('x-manual-btn').addEventListener('click', async () => {
+  const token = document.getElementById('x-manual-token').value.trim();
+  if (!token) { xShowError('トークンを入力してください'); return; }
+  // 有効性を確認してから保存
+  xShowError('確認中…');
+  try {
+    const res = await fetch('/.netlify/functions/twitter-verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access_token: token }),
+    });
+    const d = await res.json();
+    if (res.ok) {
+      XStore.set({ access_token: token, refresh_token: null, expires_at: Date.now() + 7776000000 }); // 90日
+      xShowError('');
+      xUpdateUI();
+      toast(`X 連携完了 ✓ (@${d.data?.username || d.data?.name})`);
+    } else {
+      xShowError(`トークン無効 (${res.status}): ${d.detail || d.error || JSON.stringify(d)}`);
+    }
+  } catch(e) { xShowError('確認エラー: ' + e.message); }
+});
 document.getElementById('x-logout').addEventListener('click', () => { XStore.clear(); xUpdateUI(); });
 
 document.getElementById('x-verify').addEventListener('click', async () => {
