@@ -16,17 +16,16 @@ exports.handler = async (event) => {
     const CLIENT_SEC   = process.env.TWITTER_CLIENT_SECRET;
     const REDIRECT_URI = process.env.TWITTER_REDIRECT_URI || 'https://issowriter.netlify.app/';
 
+    // Confidential client: client_id はBasic認証ヘッダーで渡すのでbodyには含めない
     const params = body.grant_type === 'refresh_token'
       ? new URLSearchParams({
           grant_type:    'refresh_token',
           refresh_token:  body.refresh_token,
-          client_id:      CLIENT_ID,
         })
       : new URLSearchParams({
           grant_type:    'authorization_code',
           code:           body.code,
           redirect_uri:   REDIRECT_URI,
-          client_id:      CLIENT_ID,
           code_verifier:  body.code_verifier,
         });
 

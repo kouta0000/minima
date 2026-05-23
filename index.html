@@ -2959,8 +2959,8 @@ async function xHandleCallback() {
       xUpdateUI();
       toast('X認証完了 ✓');
     } else {
-      const msg = d.error_description || d.error || `サーバーエラー (${res.status})`;
-      xShowError('認証失敗: ' + msg);
+      const msg = d.error_description || d.error || JSON.stringify(d);
+      xShowError(`認証失敗 (${res.status}): ${msg}`);
       xUpdateUI();
     }
   } catch(e) {
