@@ -1392,8 +1392,12 @@ body.focus #editor { padding-top: 80px; }
           <div id="x-write-view" class="hidden">
             <div class="x-label-row">
               <span class="x-label">Xに投稿</span>
-              <button id="x-logout">連携解除</button>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <button id="x-verify" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--ghost);font-family:var(--sans);padding:0;transition:color .12s;" title="トークン診断">診断</button>
+                <button id="x-logout">連携解除</button>
+              </div>
             </div>
+            <p id="x-verify-result" class="hidden" style="font-size:10px;color:var(--soft);margin:0;line-height:1.5;"></p>
             <textarea id="x-textarea" placeholder="今何を書いていますか？" maxlength="280"></textarea>
             <div id="x-footer">
               <span id="x-counter">280</span>
@@ -3079,6 +3083,30 @@ xBtn.addEventListener('click', e => {
 });
 document.getElementById('x-auth-btn').addEventListener('click', xStartAuth);
 document.getElementById('x-logout').addEventListener('click', () => { XStore.clear(); xUpdateUI(); });
+
+document.getElementById('x-verify').addEventListener('click', async () => {
+  const el = document.getElementById('x-verify-result');
+  el.textContent = '確認中…'; el.classList.remove('hidden');
+  const token = XStore.get()?.access_token;
+  if (!token) { el.textContent = 'トークンなし'; return; }
+  try {
+    const res = await fetch('/.netlify/functions/twitter-verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access_token: token }),
+    });
+    const d = await res.json();
+    if (res.ok) {
+      el.textContent = `✓ トークン有効 (id: ${d.data?.id}, name: ${d.data?.name})`;
+      el.style.color = 'var(--ok, green)';
+    } else {
+      el.textContent = `✗ トークン無効 (${res.status}): ${d.detail || d.error || JSON.stringify(d)}`;
+      el.style.color = 'var(--ng)';
+    }
+  } catch(e) {
+    el.textContent = '通信エラー: ' + e.message;
+    el.style.color = 'var(--ng)';
+  }
+});
 
 xTextarea.addEventListener('input', () => {
   const len = xTextarea.value.length, rem = X_MAX - len;
