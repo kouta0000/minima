@@ -741,13 +741,12 @@ body.focus #editor { padding-top: 80px; }
   z-index: 500;
   display: flex; flex-direction: column; gap: 10px;
   transform-origin: top right;
-  opacity: 1; transform: scale(1) translateY(0);
-  transition: opacity .18s cubic-bezier(0.16,1,0.3,1),
-              transform .22s cubic-bezier(0.16,1,0.3,1);
+  animation: xPopIn .2s cubic-bezier(0.16,1,0.3,1) both;
 }
-#x-popover.hidden {
-  opacity: 0; pointer-events: none;
-  transform: scale(0.9) translateY(-6px);
+#x-popover.hidden { display: none; }
+@keyframes xPopIn {
+  from { opacity: 0; transform: scale(0.9) translateY(-6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 .x-label {
   font-size: 10px; color: var(--ghost); font-weight: 500;
@@ -2820,6 +2819,8 @@ document.addEventListener('click', e => {
 
   function xOpen() {
     xPopover.classList.remove('hidden');
+    xPopover.style.animation = 'none';
+    requestAnimationFrame(() => { xPopover.style.animation = ''; });
     xBtn.classList.add('active');
     setTimeout(() => xTextarea.focus(), 30);
   }
