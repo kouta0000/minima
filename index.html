@@ -3062,7 +3062,7 @@ function xUpdateUI() {
   const authed = !!XStore.get();
   xAuthView.classList.toggle('hidden',  authed);
   xWriteView.classList.toggle('hidden', !authed);
-  if (authed) xClearError();
+  if (authed) xShowError('');
 }
 function xOpen() {
   xPopover.classList.remove('hidden'); xBtn.classList.add('active');
