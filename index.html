@@ -3105,8 +3105,10 @@ xPost.addEventListener('click', async () => {
       toast('Xに投稿しました ✓');
       xClose(); xTextarea.value=''; xCounter.textContent=X_MAX; xCounter.className='';
     } else {
-      const d = await res.json();
-      toast('投稿失敗: '+(d.detail||d.error||res.status));
+      let d = {};
+      try { d = await res.json(); } catch {}
+      const msg = d.error || d.detail || d.errors?.[0]?.message || `HTTP ${res.status}`;
+      toast(`投稿失敗 (${res.status}): ${msg}`);
     }
   } catch(e) { toast('エラー: '+e.message); }
   xPost.textContent = '投稿'; xPost.disabled = false;

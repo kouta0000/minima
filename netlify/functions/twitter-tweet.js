@@ -1,4 +1,4 @@
-// ツイート投稿プロキシ
+// POST /2/tweets プロキシ (OAuth 2.0 User Context)
 exports.handler = async (event) => {
   const CORS = {
     'Content-Type': 'application/json',
@@ -13,21 +13,46 @@ exports.handler = async (event) => {
   try {
     const { text, access_token } = JSON.parse(event.body);
 
-    if (!text || !access_token)
-      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Missing params' }) };
+    if (!text)         return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Missing: text' }) };
+    if (!access_token) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Missing: access_token' }) };
 
-    const res  = await fetch('https://api.twitter.com/2/tweets', {
-      method:  'POST',
+    console.log('[twitter-tweet] text length:', text.length);
+    console.log('[twitter-tweet] token prefix:', access_token.slice(0, 8) + '...');
+
+    const res = await fetch('https://api.x.com/2/tweets', {
+      method: 'POST',
       headers: {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${access_token}`,
       },
       body: JSON.stringify({ text }),
     });
-    const data = await res.json();
 
-    return { statusCode: res.ok ? 201 : res.status, headers: CORS, body: JSON.stringify(data) };
+    const rawText = await res.text();
+    console.log('[twitter-tweet] status:', res.status);
+    console.log('[twitter-tweet] response:', rawText);
+
+    let data;
+    try { data = JSON.parse(rawText); }
+    catch { data = { error: 'invalid_response', raw: rawText }; }
+
+    // エラーメッセージを正規化して返す
+    if (!res.ok) {
+      const detail =
+        data?.detail ||
+        data?.errors?.[0]?.message ||
+        data?.error ||
+        rawText;
+      return {
+        statusCode: res.status,
+        headers: CORS,
+        body: JSON.stringify({ error: detail, status: res.status, raw: data }),
+      };
+    }
+
+    return { statusCode: 201, headers: CORS, body: JSON.stringify(data) };
   } catch (e) {
+    console.error('[twitter-tweet] Exception:', e.message);
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: e.message }) };
   }
 };
