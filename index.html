@@ -2819,8 +2819,6 @@ document.addEventListener('click', e => {
 
   function xOpen() {
     xPopover.classList.remove('hidden');
-    xPopover.style.animation = 'none';
-    requestAnimationFrame(() => { xPopover.style.animation = ''; });
     xBtn.classList.add('active');
     setTimeout(() => xTextarea.focus(), 30);
   }
