@@ -1381,24 +1381,11 @@ body.focus #editor { padding-top: 80px; }
           </svg>
         </button>
         <div id="x-popover" class="hidden">
-          <!-- 未認証 -->
-          <div id="x-auth-view">
-            <span class="x-label">Xに投稿</span>
-            <p class="x-auth-desc">Xアカウントと連携して<br>アプリ内から直接投稿できます</p>
-            <p id="x-auth-error" class="hidden"></p>
-            <button id="x-auth-btn">X で認証する</button>
-          </div>
-          <!-- 認証済み -->
-          <div id="x-write-view" class="hidden">
-            <div class="x-label-row">
-              <span class="x-label">Xに投稿</span>
-              <button id="x-logout">連携解除</button>
-            </div>
-            <textarea id="x-textarea" placeholder="今何を書いていますか？" maxlength="280"></textarea>
-            <div id="x-footer">
-              <span id="x-counter">280</span>
-              <button id="x-post" disabled>投稿</button>
-            </div>
+          <span class="x-label">Xに投稿</span>
+          <textarea id="x-textarea" placeholder="今何を書いていますか？" maxlength="280"></textarea>
+          <div id="x-footer">
+            <span id="x-counter">280</span>
+            <button id="x-post" disabled>投稿</button>
           </div>
         </div>
       </div>
@@ -2869,156 +2856,22 @@ document.addEventListener('click', e => {
   }
 });
 
-/* ════════════ X 投稿 — OAuth 2.0 PKCE (Public Client) ════════════ */
-const X_MAX = 280;
+/* ════════════ X 投稿 (OAuth 1.0a サーバー署名方式) ════════════ */
+const X_MAX  = 280;
+const xWrap  = document.getElementById('x-wrap');
+const xPopover = document.getElementById('x-popover');
+const xBtn   = document.getElementById('btn-x');
+const xTextarea = document.getElementById('x-textarea');
+const xCounter  = document.getElementById('x-counter');
+const xPost     = document.getElementById('x-post');
 
-// ── PKCE ─────────────────────────────────────────────
-function _b64url(buf) {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-}
-async function _pkceVerifier() {
-  const b = new Uint8Array(32); crypto.getRandomValues(b); return _b64url(b);
-}
-async function _pkceChallenge(v) {
-  return _b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)));
-}
+function xOpen()  { xPopover.classList.remove('hidden'); xBtn.classList.add('active'); setTimeout(() => xTextarea.focus(), 30); }
+function xClose() { xPopover.classList.add('hidden');    xBtn.classList.remove('active'); }
 
-// localStorage で PKCE を保持（Safari の sessionStorage 消滅対策）
-const XPkce = {
-  set(d)  { localStorage.setItem('x_pkce_tmp', JSON.stringify({ ...d, ts: Date.now() })); },
-  get()   {
-    try {
-      const d = JSON.parse(localStorage.getItem('x_pkce_tmp') || 'null');
-      if (!d || Date.now() - d.ts > 600000) { XPkce.clear(); return null; } // 10分
-      return d;
-    } catch { return null; }
-  },
-  clear() { localStorage.removeItem('x_pkce_tmp'); },
-};
-
-// トークン保存
-const XStore = {
-  get()   { try { return JSON.parse(localStorage.getItem('x_auth') || 'null'); } catch { return null; } },
-  set(d)  { localStorage.setItem('x_auth', JSON.stringify(d)); },
-  clear() { localStorage.removeItem('x_auth'); },
-  valid() { const a = this.get(); return !!(a && Date.now() < a.expires_at); },
-};
-
-// ── UI 要素 ───────────────────────────────────────────
-const xWrap      = document.getElementById('x-wrap');
-const xPopover   = document.getElementById('x-popover');
-const xBtn       = document.getElementById('btn-x');
-const xTextarea  = document.getElementById('x-textarea');
-const xCounter   = document.getElementById('x-counter');
-const xPost      = document.getElementById('x-post');
-const xAuthView  = document.getElementById('x-auth-view');
-const xWriteView = document.getElementById('x-write-view');
-
-function xShowError(msg) {
-  const el = document.getElementById('x-auth-error');
-  if (!msg) { el.textContent = ''; el.classList.add('hidden'); return; }
-  el.textContent = msg; el.classList.remove('hidden');
-}
-function xUpdateUI() {
-  const authed = !!XStore.get();
-  xAuthView.classList.toggle('hidden', authed);
-  xWriteView.classList.toggle('hidden', !authed);
-  if (authed) xShowError('');
-}
-function xOpen() {
-  xPopover.classList.remove('hidden'); xBtn.classList.add('active');
-  xUpdateUI();
-  if (XStore.get()) setTimeout(() => xTextarea.focus(), 30);
-}
-function xClose() { xPopover.classList.add('hidden'); xBtn.classList.remove('active'); }
-
-// ── 認証フロー ────────────────────────────────────────
-async function xStartAuth() {
-  xShowError('');
-  let cfg = {};
-  try {
-    const r = await fetch('/.netlify/functions/twitter-config');
-    if (!r.ok) throw new Error('Function HTTP ' + r.status);
-    cfg = await r.json();
-  } catch(e) { xShowError('設定エラー: ' + e.message); return; }
-  if (!cfg.client_id) { xShowError('TWITTER_CLIENT_ID が未設定です'); return; }
-
-  const verifier  = await _pkceVerifier();
-  const challenge = await _pkceChallenge(verifier);
-  const state     = _b64url(crypto.getRandomValues(new Uint8Array(12)));
-  XPkce.set({ verifier, state });
-
-  window.location.href = 'https://x.com/i/oauth2/authorize?' + new URLSearchParams({
-    response_type: 'code', client_id: cfg.client_id,
-    redirect_uri: cfg.redirect_uri, scope: 'tweet.write',
-    state, code_challenge: challenge, code_challenge_method: 'S256',
-  });
-}
-
-async function xHandleCallback() {
-  const p = new URLSearchParams(window.location.search);
-  const code = p.get('code'), st = p.get('state');
-  const errParam = p.get('error'), errDesc = p.get('error_description');
-  if (!code && !errParam) return;
-
-  history.replaceState({}, '', location.pathname);
-
-  if (errParam) {
-    XPkce.clear(); xOpen();
-    xShowError('認証エラー: ' + (errDesc ? decodeURIComponent(errDesc) : errParam));
-    return;
-  }
-
-  const pkce = XPkce.get(); XPkce.clear();
-  if (!pkce)            { xOpen(); xShowError('セッション���イムアウト。再度お試しください。'); return; }
-  if (pkce.state !== st){ xOpen(); xShowError('state 不一致。再度お試しください。'); return; }
-
-  xOpen(); toast('X 認証中…');
-  try {
-    const res = await fetch('/.netlify/functions/twitter-auth', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ grant_type: 'authorization_code', code, code_verifier: pkce.verifier }),
-    });
-    let d; try { d = await res.json(); } catch { d = { error: 'parse error' }; }
-    if (d.access_token) {
-      XStore.set({ access_token: d.access_token, refresh_token: d.refresh_token || null,
-                   expires_at: Date.now() + (d.expires_in || 7200) * 1000 });
-      xShowError(''); xUpdateUI(); toast('X 認証完了 ✓');
-    } else {
-      xShowError('認証失敗 (' + res.status + '): ' + (d.error_description || d.error || JSON.stringify(d)));
-      xUpdateUI();
-    }
-  } catch(e) { xShowError('通信エラー: ' + e.message); xUpdateUI(); }
-}
-
-async function _xEnsureToken() {
-  if (XStore.valid()) return XStore.get().access_token;
-  const auth = XStore.get();
-  if (!auth?.refresh_token) return null;
-  try {
-    const res = await fetch('/.netlify/functions/twitter-auth', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ grant_type: 'refresh_token', refresh_token: auth.refresh_token }),
-    });
-    const d = await res.json();
-    if (d.access_token) {
-      XStore.set({ access_token: d.access_token,
-                   refresh_token: d.refresh_token || auth.refresh_token,
-                   expires_at: Date.now() + (d.expires_in || 7200) * 1000 });
-      return d.access_token;
-    }
-  } catch {}
-  XStore.clear(); return null;
-}
-
-// ── イベ��ト ───────────────────────────────────────��──
 xBtn.addEventListener('click', e => {
   e.stopPropagation();
   xPopover.classList.contains('hidden') ? xOpen() : xClose();
 });
-document.getElementById('x-auth-btn').addEventListener('click', xStartAuth);
-document.getElementById('x-logout').addEventListener('click', () => { XStore.clear(); xUpdateUI(); });
 
 xTextarea.addEventListener('input', () => {
   const len = xTextarea.value.length, rem = X_MAX - len;
@@ -3031,12 +2884,10 @@ xPost.addEventListener('click', async () => {
   const text = xTextarea.value.trim();
   if (!text || text.length > X_MAX) return;
   xPost.disabled = true; xPost.textContent = '送信中…';
-  const token = await _xEnsureToken();
-  if (!token) { toast('再認証が必要です'); xUpdateUI(); xPost.textContent = '投稿'; xPost.disabled = false; return; }
   try {
     const res = await fetch('/.netlify/functions/twitter-tweet', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, access_token: token }),
+      body: JSON.stringify({ text }),
     });
     if (res.ok) {
       toast('X に投稿しました ✓');
@@ -3050,7 +2901,6 @@ xPost.addEventListener('click', async () => {
 });
 
 document.addEventListener('click', e => { if (!xWrap.contains(e.target)) xClose(); });
-xHandleCallback();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
