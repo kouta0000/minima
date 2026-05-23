@@ -3,6 +3,13 @@
 
 [functions]
   directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[functions.twitter-auth]
+  node_version = "18"
+
+[functions.twitter-config]
+  node_version = "18"
 
 [[redirects]]
   from = "/*"

@@ -2884,6 +2884,20 @@ async function _pkceChallenge(v) {
   return _b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)));
 }
 
+// ── PKCE 一時保存 (localStorageを使用 — sessionStorageはSafariで消えることがある)
+const XPkce = {
+  EXPIRY: 10 * 60 * 1000, // 10分
+  set(d)  { localStorage.setItem('x_pkce_tmp', JSON.stringify({ ...d, ts: Date.now() })); },
+  get()   {
+    try {
+      const d = JSON.parse(localStorage.getItem('x_pkce_tmp') || 'null');
+      if (!d || Date.now() - d.ts > XPkce.EXPIRY) { XPkce.clear(); return null; }
+      return d;
+    } catch { return null; }
+  },
+  clear() { localStorage.removeItem('x_pkce_tmp'); },
+};
+
 // ── Token storage ─────────────────────────────────────
 const XStore = {
   get()   { try { return JSON.parse(localStorage.getItem('x_auth')||'null'); } catch { return null; } },
@@ -2894,73 +2908,114 @@ const XStore = {
 
 // ── OAuth flow ────────────────────────────────────────
 async function xStartAuth() {
+  xShowError('');
+  let cfg = {};
+  try {
+    const r = await fetch('/.netlify/functions/twitter-config');
+    if (!r.ok) throw new Error(`Function HTTP ${r.status}`);
+    cfg = await r.json();
+  } catch(e) {
+    xShowError('Netlify Function エラー: ' + e.message);
+    return;
+  }
+  if (!cfg.client_id) {
+    xShowError('TWITTER_CLIENT_ID が未設定です（Netlify 環境変数を確認）');
+    return;
+  }
+
   const verifier  = await _pkceVerifier();
   const challenge = await _pkceChallenge(verifier);
   const state     = _b64url(crypto.getRandomValues(new Uint8Array(12)));
-  sessionStorage.setItem('x_pkce', JSON.stringify({ verifier, state }));
-  let cfg = {};
-  try { cfg = await fetch('/.netlify/functions/twitter-config').then(r=>r.json()); }
-  catch { toast('設定エラー: Netlify環境変数を確認してください'); return; }
-  if (!cfg.client_id) { toast('TWITTER_CLIENT_ID が未設定です'); return; }
-  window.location.href = 'https://twitter.com/i/oauth2/authorize?' + new URLSearchParams({
-    response_type:'code', client_id:cfg.client_id,
-    redirect_uri:cfg.redirect_uri, scope:'tweet.write users.read',
-    state, code_challenge:challenge, code_challenge_method:'S256',
+
+  // localStorageに保存（Safariのsession消滅対策）
+  XPkce.set({ verifier, state, redirect_uri: cfg.redirect_uri });
+
+  const authUrl = 'https://x.com/i/oauth2/authorize?' + new URLSearchParams({
+    response_type:       'code',
+    client_id:            cfg.client_id,
+    redirect_uri:         cfg.redirect_uri,
+    scope:               'tweet.write users.read offline.access',
+    state,
+    code_challenge:       challenge,
+    code_challenge_method:'S256',
   });
+
+  window.location.href = authUrl;
 }
 
 function xShowError(msg) {
   const el = document.getElementById('x-auth-error');
+  if (!msg) { el.textContent = ''; el.classList.add('hidden'); return; }
   el.textContent = msg; el.classList.remove('hidden');
-}
-function xClearError() {
-  const el = document.getElementById('x-auth-error');
-  el.textContent = ''; el.classList.add('hidden');
 }
 
 async function xHandleCallback() {
-  const p = new URLSearchParams(window.location.search);
-  const code = p.get('code'), st = p.get('state');
-  const errParam = p.get('error'), errDesc = p.get('error_description');
+  const p        = new URLSearchParams(window.location.search);
+  const code     = p.get('code');
+  const st       = p.get('state');
+  const errParam = p.get('error');
+  const errDesc  = p.get('error_description');
 
-  // Twitter が error で戻ってきた場合
+  // URLにOAuth関連パラメータがなければ何もしない
+  if (!code && !errParam) return;
+
+  // URLをすぐにクリーン（リロード対策）
+  history.replaceState({}, '', location.pathname);
+
+  // Twitterがエラーを返した場合
   if (errParam) {
-    history.replaceState({}, '', location.pathname);
-    sessionStorage.removeItem('x_pkce');
+    XPkce.clear();
     xOpen();
-    xShowError('Twitter認証エラー: ' + (errDesc || errParam));
+    xShowError('X認証エラー: ' + (errDesc ? decodeURIComponent(errDesc) : errParam));
     return;
   }
 
-  if (!code) return;
+  // PKCE を取得
+  const pkce = XPkce.get();
+  XPkce.clear();
 
-  const pkce = JSON.parse(sessionStorage.getItem('x_pkce')||'null');
-  sessionStorage.removeItem('x_pkce');
-  history.replaceState({}, '', location.pathname);
-
-  if (!pkce || pkce.state !== st) {
+  if (!pkce) {
     xOpen();
-    xShowError('認証エラー: セッション不一致。もう一度お試しください。');
+    xShowError('セッションタイムアウト（10分以内に認証してください）');
+    return;
+  }
+
+  if (pkce.state !== st) {
+    xOpen();
+    xShowError('CSRF検証失敗 (state不一致)。もう一度お試しください。');
     return;
   }
 
   xOpen();
   toast('X認証中…');
+
   try {
     const res = await fetch('/.netlify/functions/twitter-auth', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ grant_type:'authorization_code', code, code_verifier:pkce.verifier }),
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        grant_type:    'authorization_code',
+        code,
+        code_verifier: pkce.verifier,
+      }),
     });
-    const d = await res.json();
+
+    let d;
+    try { d = await res.json(); }
+    catch { d = { error: 'invalid_json', status: res.status }; }
+
     if (d.access_token) {
-      XStore.set({ access_token:d.access_token, refresh_token:d.refresh_token||null,
-                   expires_at: Date.now()+(d.expires_in||7200)*1000 });
-      xClearError();
+      XStore.set({
+        access_token:  d.access_token,
+        refresh_token: d.refresh_token || null,
+        expires_at:    Date.now() + (d.expires_in || 7200) * 1000,
+      });
+      xShowError('');
       xUpdateUI();
       toast('X認証完了 ✓');
     } else {
       const msg = d.error_description || d.error || JSON.stringify(d);
-      xShowError(`認証失敗 (${res.status}): ${msg}`);
+      xShowError(`認証失敗 (HTTP ${res.status}): ${msg}`);
       xUpdateUI();
     }
   } catch(e) {
@@ -2975,14 +3030,17 @@ async function _xEnsureToken() {
   if (!auth?.refresh_token) return null;
   try {
     const res = await fetch('/.netlify/functions/twitter-auth', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ grant_type:'refresh_token', refresh_token:auth.refresh_token }),
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ grant_type:'refresh_token', refresh_token:auth.refresh_token }),
     });
     const d = await res.json();
     if (d.access_token) {
-      XStore.set({ access_token:d.access_token,
-                   refresh_token:d.refresh_token||auth.refresh_token,
-                   expires_at: Date.now()+(d.expires_in||7200)*1000 });
+      XStore.set({
+        access_token:  d.access_token,
+        refresh_token: d.refresh_token || auth.refresh_token,
+        expires_at:    Date.now() + (d.expires_in || 7200) * 1000,
+      });
       return d.access_token;
     }
   } catch {}
