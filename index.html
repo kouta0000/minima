@@ -746,6 +746,27 @@ body.focus #editor { padding-top: 80px; }
   font-size: 10px; color: var(--ghost); font-weight: 500;
   letter-spacing: .06em; text-transform: uppercase; font-family: var(--sans);
 }
+.x-label-row { display: flex; align-items: center; justify-content: space-between; }
+.x-auth-desc {
+  font-size: 12px; color: var(--soft); line-height: 1.7;
+  text-align: center; padding: 4px 0;
+}
+#x-auth-view { display: flex; flex-direction: column; gap: 10px; }
+#x-write-view { display: flex; flex-direction: column; gap: 10px; }
+#x-auth-btn {
+  width: 100%; background: var(--ink); color: var(--hi);
+  border: none; border-radius: var(--r-s);
+  padding: 8px; font-size: 12px; font-family: var(--sans);
+  font-weight: 500; cursor: pointer; letter-spacing: .02em;
+  transition: opacity .15s;
+}
+#x-auth-btn:hover { opacity: .82; }
+#x-logout {
+  background: none; border: none; cursor: pointer;
+  font-size: 10px; color: var(--ghost); font-family: var(--sans);
+  padding: 0; transition: color .12s;
+}
+#x-logout:hover { color: var(--ng); }
 #x-textarea {
   width: 100%; height: 96px; resize: none;
   background: var(--hi); border: 1px solid var(--bdr-s);
@@ -1358,11 +1379,23 @@ body.focus #editor { padding-top: 80px; }
           </svg>
         </button>
         <div id="x-popover" class="hidden">
-          <span class="x-label">Xに投稿</span>
-          <textarea id="x-textarea" placeholder="今何を書いていますか？" maxlength="280"></textarea>
-          <div id="x-footer">
-            <span id="x-counter">280</span>
-            <button id="x-post" disabled>投稿</button>
+          <!-- 未認証ビュー -->
+          <div id="x-auth-view">
+            <span class="x-label">Xに投稿</span>
+            <p class="x-auth-desc">Xアカウントと連携して<br>アプリ内から直接投稿できます</p>
+            <button id="x-auth-btn">X で認証する</button>
+          </div>
+          <!-- 認証済みビュー -->
+          <div id="x-write-view" class="hidden">
+            <div class="x-label-row">
+              <span class="x-label">Xに投稿</span>
+              <button id="x-logout">連携解除</button>
+            </div>
+            <textarea id="x-textarea" placeholder="今何を書いていますか？" maxlength="280"></textarea>
+            <div id="x-footer">
+              <span id="x-counter">280</span>
+              <button id="x-post" disabled>投稿</button>
+            </div>
           </div>
         </div>
       </div>
@@ -2833,57 +2866,158 @@ document.addEventListener('click', e => {
   }
 });
 
-/* ════════════ X POSTING ════════════ */
-(function () {
-  const xWrap     = document.getElementById('x-wrap');
-  const xPopover  = document.getElementById('x-popover');
-  const xBtn      = document.getElementById('btn-x');
-  const xTextarea = document.getElementById('x-textarea');
-  const xCounter  = document.getElementById('x-counter');
-  const xPost     = document.getElementById('x-post');
-  const X_MAX     = 280;
+/* ════════════ X / TWITTER OAuth 2.0 PKCE ════════════ */
+const X_MAX = 280;
 
-  function xOpen() {
-    xPopover.classList.remove('hidden');
-    xBtn.classList.add('active');
-    setTimeout(() => xTextarea.focus(), 30);
+// ── PKCE helpers ─────────────────────────────────────
+function _b64url(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+async function _pkceVerifier() {
+  const b = new Uint8Array(32); crypto.getRandomValues(b); return _b64url(b);
+}
+async function _pkceChallenge(v) {
+  return _b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)));
+}
+
+// ── Token storage ─────────────────────────────────────
+const XStore = {
+  get()   { try { return JSON.parse(localStorage.getItem('x_auth')||'null'); } catch { return null; } },
+  set(d)  { localStorage.setItem('x_auth', JSON.stringify(d)); },
+  clear() { localStorage.removeItem('x_auth'); },
+  valid() { const a=this.get(); return !!(a && Date.now() < a.expires_at); },
+};
+
+// ── OAuth flow ────────────────────────────────────────
+async function xStartAuth() {
+  const verifier  = await _pkceVerifier();
+  const challenge = await _pkceChallenge(verifier);
+  const state     = _b64url(crypto.getRandomValues(new Uint8Array(12)));
+  sessionStorage.setItem('x_pkce', JSON.stringify({ verifier, state }));
+  let cfg = {};
+  try { cfg = await fetch('/.netlify/functions/twitter-config').then(r=>r.json()); }
+  catch { toast('設定エラー: Netlify環境変数を確認してください'); return; }
+  if (!cfg.client_id) { toast('TWITTER_CLIENT_ID が未設定です'); return; }
+  window.location.href = 'https://twitter.com/i/oauth2/authorize?' + new URLSearchParams({
+    response_type:'code', client_id:cfg.client_id,
+    redirect_uri:cfg.redirect_uri, scope:'tweet.write users.read offline.access',
+    state, code_challenge:challenge, code_challenge_method:'S256',
+  });
+}
+
+async function xHandleCallback() {
+  const p = new URLSearchParams(window.location.search);
+  const code = p.get('code'), st = p.get('state');
+  if (!code) return;
+  const pkce = JSON.parse(sessionStorage.getItem('x_pkce')||'null');
+  sessionStorage.removeItem('x_pkce');
+  history.replaceState({}, '', location.pathname);
+  if (!pkce || pkce.state !== st) { toast('認証エラー: state不一致'); return; }
+  toast('X認証中…');
+  try {
+    const res = await fetch('/.netlify/functions/twitter-auth', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ grant_type:'authorization_code', code, code_verifier:pkce.verifier }),
+    });
+    const d = await res.json();
+    if (d.access_token) {
+      XStore.set({ access_token:d.access_token, refresh_token:d.refresh_token,
+                   expires_at: Date.now()+(d.expires_in||7200)*1000 });
+      toast('X認証完了 ✓');
+    } else {
+      toast('認証失敗: '+(d.error_description||d.error||'不明なエラー'));
+    }
+  } catch(e) { toast('認証エラー: '+e.message); }
+  xUpdateUI();
+}
+
+async function _xEnsureToken() {
+  if (XStore.valid()) return XStore.get().access_token;
+  const auth = XStore.get();
+  if (!auth?.refresh_token) return null;
+  try {
+    const res = await fetch('/.netlify/functions/twitter-auth', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ grant_type:'refresh_token', refresh_token:auth.refresh_token }),
+    });
+    const d = await res.json();
+    if (d.access_token) {
+      XStore.set({ access_token:d.access_token,
+                   refresh_token:d.refresh_token||auth.refresh_token,
+                   expires_at: Date.now()+(d.expires_in||7200)*1000 });
+      return d.access_token;
+    }
+  } catch {}
+  XStore.clear();
+  return null;
+}
+
+// ── UI ────────────────────────────────────────────────
+const xWrap      = document.getElementById('x-wrap');
+const xPopover   = document.getElementById('x-popover');
+const xBtn       = document.getElementById('btn-x');
+const xTextarea  = document.getElementById('x-textarea');
+const xCounter   = document.getElementById('x-counter');
+const xPost      = document.getElementById('x-post');
+const xAuthView  = document.getElementById('x-auth-view');
+const xWriteView = document.getElementById('x-write-view');
+
+function xUpdateUI() {
+  const authed = !!XStore.get();
+  xAuthView.classList.toggle('hidden',  authed);
+  xWriteView.classList.toggle('hidden', !authed);
+}
+function xOpen() {
+  xPopover.classList.remove('hidden'); xBtn.classList.add('active');
+  xUpdateUI();
+  if (XStore.get()) setTimeout(() => xTextarea.focus(), 30);
+}
+function xClose() {
+  xPopover.classList.add('hidden'); xBtn.classList.remove('active');
+}
+
+xBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  xPopover.classList.contains('hidden') ? xOpen() : xClose();
+});
+document.getElementById('x-auth-btn').addEventListener('click', xStartAuth);
+document.getElementById('x-logout').addEventListener('click', () => { XStore.clear(); xUpdateUI(); });
+
+xTextarea.addEventListener('input', () => {
+  const len = xTextarea.value.length, rem = X_MAX - len;
+  xCounter.textContent = rem;
+  xCounter.className = rem < 0 ? 'over' : rem <= 20 ? 'warn' : '';
+  xPost.disabled = len === 0 || len > X_MAX;
+});
+
+xPost.addEventListener('click', async () => {
+  const text = xTextarea.value.trim();
+  if (!text || text.length > X_MAX) return;
+  xPost.disabled = true; xPost.textContent = '送信中…';
+  const token = await _xEnsureToken();
+  if (!token) {
+    toast('再認証が必要です'); xUpdateUI();
+    xPost.textContent = '投稿'; xPost.disabled = false; return;
   }
-  function xClose() {
-    xPopover.classList.add('hidden');
-    xBtn.classList.remove('active');
-  }
+  try {
+    const res = await fetch('/.netlify/functions/twitter-tweet', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text, access_token:token }),
+    });
+    if (res.ok) {
+      toast('Xに投稿しました ✓');
+      xClose(); xTextarea.value=''; xCounter.textContent=X_MAX; xCounter.className='';
+    } else {
+      const d = await res.json();
+      toast('投稿失敗: '+(d.detail||d.error||res.status));
+    }
+  } catch(e) { toast('エラー: '+e.message); }
+  xPost.textContent = '投稿'; xPost.disabled = false;
+});
 
-  xBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    xPopover.classList.contains('hidden') ? xOpen() : xClose();
-  });
-
-  xTextarea.addEventListener('input', () => {
-    const len = xTextarea.value.length;
-    const rem = X_MAX - len;
-    xCounter.textContent = rem;
-    xCounter.className = rem < 0 ? 'over' : rem <= 20 ? 'warn' : '';
-    xPost.disabled = len === 0 || len > X_MAX;
-  });
-
-  xPost.addEventListener('click', () => {
-    const text = xTextarea.value.trim();
-    if (!text || text.length > X_MAX) return;
-    window.open(
-      'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text),
-      '_blank', 'noopener,noreferrer'
-    );
-    xClose();
-    xTextarea.value = '';
-    xCounter.textContent = X_MAX;
-    xCounter.className = '';
-    xPost.disabled = true;
-  });
-
-  document.addEventListener('click', e => {
-    if (!xWrap.contains(e.target)) xClose();
-  });
-})();
+document.addEventListener('click', e => { if (!xWrap.contains(e.target)) xClose(); });
+xHandleCallback();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
